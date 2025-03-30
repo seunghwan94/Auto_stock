@@ -30,7 +30,9 @@ jobs:
 
           # ✅ 환경 변수 설정
           export ENV=production
+          
           export LIVE_MODE=False
+
           export UPBIT_ACCESS_KEY=${{ secrets.UPBIT_ACCESS_KEY }}
           export UPBIT_SECRET_KEY=${{ secrets.UPBIT_SECRET_KEY }}
           export DISCORD_WEBHOOK_URL=${{ secrets.DISCORD_WEBHOOK_URL }}

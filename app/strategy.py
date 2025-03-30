@@ -95,6 +95,12 @@ def check_entry_signal() -> bool:
     latest = df.iloc[-1]
     prev = df.iloc[-2]
 
+    # 🔍 로그 출력
+    log.info(f"🔍 RSI: {latest['rsi']:.2f}, MA3: {latest['ma3']}, MA15: {latest['ma15']}")
+    log.info(f"🔍 봉 패턴: {latest['open']} → {latest['close']} (양봉? {latest['close'] > latest['open'] * 1.001}), 이전봉 음봉? {prev['close'] < prev['open']}")
+    log.info(f"🔍 거래량: {latest['volume']} / MA10: {latest['volume_ma10']}")
+    log.info(f"🔍 변동성: {latest['volatility']:.4f}")
+    
     # 변동성 필터
     if latest['volatility'] > 0.015:
         log.info("⚠️ 변동성 과다 → 진입 제한")
