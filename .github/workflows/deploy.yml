@@ -1,0 +1,41 @@
+name: Auto Deploy to EC2
+
+on:
+  push:
+    branches:
+      - master
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Deploy to EC2 and restart start.py
+      uses: appleboy/ssh-action@v0.1.10
+      with:
+        host: ${{ secrets.EC2_HOST }}
+        username: ubuntu
+        key: ${{ secrets.EC2_PRIVATE_KEY }}
+        script: |
+          echo "🚀 배포 시작"
+
+          # 프로젝트 디렉토리로 이동
+          cd ~/StockAuto
+
+          # 최신 코드 pull
+          git pull origin master
+
+          # 실행 권한 부여
+          chmod +x start.sh
+
+          # ✅ 환경 변수 설정
+          export ENV=production
+          export LIVE_MODE=False
+          export UPBIT_ACCESS_KEY=${{ secrets.UPBIT_ACCESS_KEY }}
+          export UPBIT_SECRET_KEY=${{ secrets.UPBIT_SECRET_KEY }}
+          export DISCORD_WEBHOOK_URL=${{ secrets.DISCORD_WEBHOOK_URL }}
+
+          # ✅ 실행 (환경변수 유지하며 실행되도록 start.sh 작성돼 있어야 함)
+          ./start.sh
+
+          echo "✅ 배포 및 start.py 실행 완료"
