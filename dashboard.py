@@ -1,84 +1,97 @@
-
 import streamlit as st
 import pandas as pd
-import pymysql
-from config import DB_CONFIG
+import plotly.graph_objects as go
+from app.utils.db_connect import get_connection
+from app.utils.seed_tracker import get_seed
 from datetime import datetime
-import plotly.express as px
 
-st.set_page_config(page_title="📊 BTC 자동매매 대시보드", layout="wide")
-st.title("📈 BTC 자동매매 대시보드")
+st.set_page_config(page_title="BTC 자동매매 대시보드", layout="wide")
+st.title("📊 비트코인 자동매매 대시보드")
 
-# DB 연결 함수
-@st.cache_resource
-def get_connection():
-    return pymysql.connect(
-        host=DB_CONFIG['host'],
-        port=DB_CONFIG['port'],
-        user=DB_CONFIG['user'],
-        password=DB_CONFIG['password'],
-        db=DB_CONFIG['database'],
-        charset='utf8mb4',
-        autocommit=True
-    )
+# 시드 잔고 표시
+seed = get_seed()
+st.metric("💰 현재 시드 잔고", f"{seed:,} 원")
 
-conn = get_connection()
-
-# 최근 시드 잔고
-def get_latest_seed():
-    with conn.cursor() as cursor:
-        cursor.execute("SELECT seed_balance FROM trade_history ORDER BY executed_at DESC LIMIT 1")
-        result = cursor.fetchone()
-        return int(result[0]) if result else None
-
-# 누적 수익률
+# 누적 수익률 계산 함수
 def get_total_roi():
-    with conn.cursor() as cursor:
-        cursor.execute("SELECT roi FROM trade_history WHERE roi IS NOT NULL")
-        rows = cursor.fetchall()
-        total = sum([r[0] for r in rows])
-        return total
+    conn = get_connection()
+    if not conn:
+        return 0.0
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute("SELECT roi FROM trade_history WHERE roi IS NOT NULL")
+            rows = cursor.fetchall()
+            if not rows:
+                return 0.0
+            total_roi = sum(r[0] for r in rows)
+            return total_roi
+    except Exception as e:
+        st.error(f"[누적 수익률 조회 실패] {e}")
+        return 0.0
+    finally:
+        conn.close()
 
-# 최근 거래 내역
-def get_trade_history(limit=20):
-    with conn.cursor() as cursor:
-        cursor.execute(f"""
-            SELECT trade_type, price, amount, roi, executed_at, is_simulated, seed_balance
-            FROM trade_history
-            ORDER BY executed_at DESC
-            LIMIT {limit}
-        """)
-        rows = cursor.fetchall()
-        df = pd.DataFrame(rows, columns=["Type", "Price", "Amount", "ROI", "Executed At", "Simulated", "Seed"])
-        return df
+# 누적 수익률 표시
+st.metric("📈 누적 수익률", f"{get_total_roi():.2%}")
 
-# 월별 수익
-def get_monthly_returns():
-    with conn.cursor() as cursor:
-        cursor.execute("SELECT executed_at, roi FROM trade_history WHERE roi IS NOT NULL")
-        rows = cursor.fetchall()
-        df = pd.DataFrame(rows, columns=["executed_at", "roi"])
-        df["executed_at"] = pd.to_datetime(df["executed_at"])
-        df["month"] = df["executed_at"].dt.to_period("M").astype(str)
-        monthly = df.groupby("month")["roi"].sum().reset_index()
-        return monthly
+# 거래 시점이 표시된 시세 차트
+def plot_trade_chart():
+    conn = get_connection()
+    if not conn:
+        return
+    try:
+        df = pd.read_sql("SELECT * FROM btc_price_1min ORDER BY timestamp DESC LIMIT 60", conn)
+        df = df.sort_values("timestamp")
 
-# 실시간 시드 및 수익률 표시
-col1, col2 = st.columns(2)
-with col1:
-    st.metric("💰 현재 시드 잔고", f"{get_latest_seed():,} 원")
-with col2:
-    st.metric("📈 누적 수익률", f"{get_total_roi():.2%}")
+        trades = pd.read_sql("SELECT * FROM trade_history ORDER BY executed_at DESC LIMIT 30", conn)
 
-st.markdown("---")
+        fig = go.Figure()
+        fig.add_trace(go.Candlestick(
+            x=df['timestamp'],
+            open=df['open'],
+            high=df['high'],
+            low=df['low'],
+            close=df['close'],
+            name='BTC 시세'
+        ))
 
-# 거래 내역 테이블
-st.subheader("📋 최근 거래 내역")
-history_df = get_trade_history()
-st.dataframe(history_df, use_container_width=True)
+        # 거래 시점 표시
+        for _, row in trades.iterrows():
+            color = "green" if row['trade_type'] == 'buy' else "red"
+            fig.add_trace(go.Scatter(
+                x=[row['executed_at']],
+                y=[row['price']],
+                mode="markers+text",
+                marker=dict(color=color, size=10),
+                name=row['trade_type'],
+                text=[row['trade_type']],
+                textposition="top center"
+            ))
 
-# 수익률 그래프
-st.subheader("📊 월별 누적 수익률")
-monthly_df = get_monthly_returns()
-fig = px.bar(monthly_df, x="month", y="roi", text="roi", title="월별 수익률")
-st.plotly_chart(fig, use_container_width=True)
+        fig.update_layout(title="BTC 시세 + 거래 시점", xaxis_title="시간", yaxis_title="가격")
+        st.plotly_chart(fig, use_container_width=True)
+    except Exception as e:
+        st.error(f"[차트 로딩 실패] {e}")
+    finally:
+        conn.close()
+
+# 최근 거래 내역 테이블
+def show_trade_history():
+    conn = get_connection()
+    if not conn:
+        return
+    try:
+        df = pd.read_sql("SELECT * FROM trade_history ORDER BY executed_at DESC LIMIT 20", conn)
+        df['executed_at'] = pd.to_datetime(df['executed_at']).dt.strftime("%Y-%m-%d %H:%M")
+        st.subheader("🧾 최근 거래 내역")
+        st.dataframe(df)
+    except Exception as e:
+        st.error(f"[거래 내역 로딩 실패] {e}")
+    finally:
+        conn.close()
+
+# 대시보드 표시
+st.divider()
+plot_trade_chart()
+st.divider()
+show_trade_history()

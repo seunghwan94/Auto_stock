@@ -20,14 +20,14 @@ def buy(price: float, amount: float, is_simulated: bool = not LIVE_MODE):
             return
 
     if is_simulated:
-        log.info(f"🟢 모의 매수 - 가격: {price}, 수량: {amount}")
-        send_discord_message(f"🟢 [모의매매] 매수 - {price}원, 수량: {amount}")
+        log.info(f"🟢 모의 매수 - 가격: {price:,.0f}, 수량: {amount:.8f}")
+        send_discord_message(f"🟢 [모의매매] 매수 - {price:,.0f}원, 수량: {amount:.8f}")
     else:
         try:
             upbit = pyupbit.Upbit(UPBIT_ACCESS_KEY, UPBIT_SECRET_KEY)
             resp = upbit.buy_market_order(COIN_TICKER, price)
             log.info(f"✅ 실전 매수 완료: {resp}")
-            send_discord_message(f"✅ [실전매매] 매수 - {price}원, 수량: {amount}")
+            send_discord_message(f"✅ [실전매매] 매수 - {price:,.0f}원, 수량: {amount:.8f}")
         except Exception as e:
             log.error(f"[실매수 오류] {e}")
             send_discord_message(f"❌ 실매수 실패: {e}")
@@ -50,7 +50,7 @@ def buy(price: float, amount: float, is_simulated: bool = not LIVE_MODE):
                 """
                 executed_at = get_kst_now().strftime("%Y-%m-%d %H:%M:%S")
                 current_seed = get_seed()
-                cursor.execute(sql, (price, amount, executed_at, is_simulated, current_seed))
+                cursor.execute(sql, (price, amount, None,executed_at, is_simulated, current_seed))
         except Exception as e:
             log.error(f"[매수 기록 저장 실패] {e}")
         finally:
@@ -58,14 +58,14 @@ def buy(price: float, amount: float, is_simulated: bool = not LIVE_MODE):
 
 def sell(price: float, amount: float, roi: float, is_simulated: bool = not LIVE_MODE):
     if is_simulated:
-        log.info(f"🔴 모의 매도 - 가격: {price}, 수량: {amount}, 수익률: {roi:.2%}")
-        send_discord_message(f"🔴 [모의매매] 매도 - {price}원, 수익률: {roi:.2%}")
+        log.info(f"🔴 모의 매도 - 가격: {price:,.0f}, 수량: {amount:.8f}, 수익률: {roi:.2%}")
+        send_discord_message(f"🔴 [모의매매] 매도 - {price:,.0f}원, 수익률: {roi:.2%}")
     else:
         try:
             upbit = pyupbit.Upbit(UPBIT_ACCESS_KEY, UPBIT_SECRET_KEY)
             resp = upbit.sell_market_order(COIN_TICKER, amount)
             log.info(f"✅ 실전 매도 완료: {resp}")
-            send_discord_message(f"✅ [실전매매] 매도 - {price}원, 수익률: {roi:.2%}")
+            send_discord_message(f"✅ [실전매매] 매도 - {price:,.0f}원, 수익률: {roi:.2%}")
         except Exception as e:
             log.error(f"[실매도 오류] {e}")
             send_discord_message(f"❌ 실매도 실패: {e}")
@@ -89,7 +89,7 @@ def sell(price: float, amount: float, roi: float, is_simulated: bool = not LIVE_
                 """
                 executed_at = get_kst_now().strftime("%Y-%m-%d %H:%M:%S")
                 current_seed = get_seed()
-                cursor.execute(sql, (price, amount, executed_at, is_simulated, current_seed))
+                cursor.execute(sql, (price, amount, None,executed_at, is_simulated, current_seed))
         except Exception as e:
             log.error(f"[매도 기록 저장 실패] {e}")
         finally:
