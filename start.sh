@@ -2,6 +2,7 @@
 # 중복된 main.py 프로세스 종료
 echo "🔍 기존 main.py 프로세스 종료 중..."
 pkill -f main.py
+pkill -f main2.py
 
 sleep 1
 
