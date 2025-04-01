@@ -1,6 +1,11 @@
 import json
 import os
 from config import INITIAL_SEED  # ✅ config.py에서 가져오기
+from app.utils.db_connect import get_connection
+from app.utils.logger import get_logger
+from config import LIVE_MODE
+
+log = get_logger()
 
 SEED_FILE = "seed_state.json"
 

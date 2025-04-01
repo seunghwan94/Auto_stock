@@ -111,48 +111,48 @@ def start_loop():
 
     # 메인 루프
     while True:
-        try:
-            # 현재 포지션 확인
-            has_position, entry_price, position_amount = has_open_position()
+        # try:
+        # 현재 포지션 확인
+        has_position, entry_price, position_amount = has_open_position()
+        
+        if not has_position:
+            # 포지션이 없을 때 진입 신호 확인
+            should_enter, entry_ratio = check_entry_signal()
             
-            if not has_position:
-                # 포지션이 없을 때 진입 신호 확인
-                should_enter, entry_ratio = check_entry_signal()
+            if should_enter:
+                # 진입 비율에 따라 거래 금액 계산
+                entry_amount = TRADE_AMOUNT * entry_ratio
                 
-                if should_enter:
-                    # 진입 비율에 따라 거래 금액 계산
-                    entry_amount = TRADE_AMOUNT * entry_ratio
+                # 현재 가격 조회
+                current_price = get_current_price()
+                if current_price:
+                    # 수량 계산
+                    coin_amount = entry_amount / current_price
                     
-                    # 현재 가격 조회
-                    current_price = get_current_price()
-                    if current_price:
-                        # 수량 계산
-                        coin_amount = entry_amount / current_price
-                        
-                        # 매수 실행
-                        buy(entry_amount, coin_amount)
-                        log.info(f"매수 실행: {entry_amount}원 ({entry_ratio*100}% 진입)")
-            else:
-                # 포지션이 있을 때 청산 신호 확인
-                should_exit = check_exit_signal(entry_price)
-                
-                if should_exit:
-                    current_price = get_current_price()
-                    if current_price and entry_price:
-                        # ROI 계산
-                        roi = (current_price / entry_price) - 1
-                        
-                        # 매도 실행
-                        sell(current_price, position_amount, roi)
-                        log.info(f"매도 실행: {current_price}원, ROI: {roi:.2%}")
-                        
-            # 4. 60초 대기
-            time.sleep(60)
+                    # 매수 실행
+                    buy(entry_amount, coin_amount)
+                    log.info(f"매수 실행: {entry_amount}원 ({entry_ratio*100}% 진입)")
+        else:
+            # 포지션이 있을 때 청산 신호 확인
+            should_exit = check_exit_signal(entry_price)
+            
+            if should_exit:
+                current_price = get_current_price()
+                if current_price and entry_price:
+                    # ROI 계산
+                    roi = (current_price / entry_price) - 1
+                    
+                    # 매도 실행
+                    sell(current_price, position_amount, roi)
+                    log.info(f"매도 실행: {current_price}원, ROI: {roi:.2%}")
+                    
+        # 4. 60초 대기
+        time.sleep(60)
 
-        except Exception as e:
-            log.error(f"[감시 루프 오류] {e}")
-            send_discord_message(f"❌ 감시 루프 오류 발생: {e}")
-            time.sleep(60)
+        # except Exception as e:
+        #     log.error(f"[감시 루프 오류] {e}")
+        #     send_discord_message(f"❌ 감시 루프 오류 발생: {e}")
+        #     time.sleep(60)
 
 if __name__ == "__main__":
     start_loop()
