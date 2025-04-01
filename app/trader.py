@@ -6,11 +6,12 @@ from app.utils.db_connect import get_connection
 from app.utils.logger import get_logger
 from app.utils.time_utils import get_kst_now
 from app.utils.discord import send_discord_message
-from app.utils.seed_tracker import get_seed, decrease_seed, increase_seed
+from app.utils.seed_tracker import get_seed, decrease_seed, increase_seed, get_holding_amount
+
 
 log = get_logger()
 
-def buy(price: float, amount: float, is_simulated: bool = not LIVE_MODE):
+def buy(price: float, amount: float = None, is_simulated: bool = not LIVE_MODE):
     if not is_simulated:
         # ✅ 실제 매매 시 잔고 확인
         current_seed = get_seed()
@@ -20,13 +21,16 @@ def buy(price: float, amount: float, is_simulated: bool = not LIVE_MODE):
             return
 
     if is_simulated:
+        if amount is None:
+            amount = TRADE_AMOUNT / price
         log.info(f"🟢 모의 매수 - 가격: {price:,.0f}, 수량: {amount:.8f}")
         send_discord_message(f"🟢 [모의매매] 매수 - {price:,.0f}원, 수량: {amount:.8f}")
     else:
         try:
             upbit = pyupbit.Upbit(UPBIT_ACCESS_KEY, UPBIT_SECRET_KEY)
             resp = upbit.buy_market_order(COIN_TICKER, TRADE_AMOUNT)  # 실매매는 금액 기준
-            amount = TRADE_AMOUNT / price  # 수량은 가격 기반으로 계산
+            # 실제 매수 수량 추정
+            amount = TRADE_AMOUNT / price  # 정확히 fill된 수량은 resp['executed_volume']이 필요함
             log.info(f"✅ 실전 매수 완료: {resp}")
             send_discord_message(f"✅ [실전매매] 매수 - {price:,.0f}원, 수량: {amount:.8f}")
         except Exception as e:
@@ -51,13 +55,22 @@ def buy(price: float, amount: float, is_simulated: bool = not LIVE_MODE):
                 """
                 executed_at = get_kst_now().strftime("%Y-%m-%d %H:%M:%S")
                 current_seed = get_seed()
-                cursor.execute(sql, (price, amount, None,executed_at, is_simulated, current_seed))
+                cursor.execute(sql, (price, amount, None, executed_at, is_simulated, current_seed))
         except Exception as e:
             log.error(f"[매수 기록 저장 실패] {e}")
         finally:
             conn.close()
 
+
 def sell(price: float, amount: float, roi: float, is_simulated: bool = not LIVE_MODE):
+    holding = get_holding_amount()
+    if holding <= 0:
+        log.warning("⚠️ 현재 보유 수량 없음 → 매도 불가")
+        send_discord_message("⚠️ [매도 차단] 보유 수량이 없어 매도하지 않습니다.")
+        return
+
+    amount = min(amount, holding)  # 보유 수량 초과 매도 방지
+
     if is_simulated:
         log.info(f"🔴 모의 매도 - 가격: {price:,.0f}, 수량: {amount:.8f}, 수익률: {roi:.2%}")
         send_discord_message(f"🔴 [모의매매] 매도 - {price:,.0f}원, 수익률: {roi:.2%}")
