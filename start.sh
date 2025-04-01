@@ -1,8 +1,7 @@
 #!/bin/bash
 # 중복된 main.py 프로세스 종료
 echo "🔍 기존 main.py 프로세스 종료 중..."
-pkill -f main.py
-pkill -f main2.py
+ps aux | grep '[m]ain2.py' | awk '{print $2}' | xargs -r kill -9
 
 sleep 1
 
