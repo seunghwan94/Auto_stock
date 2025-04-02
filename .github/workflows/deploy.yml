@@ -20,20 +20,23 @@ jobs:
           set -e
           echo "🚀 배포 시작"
           cd ~/StockAuto
-        
-          echo "📦 git pull 시도"
-          git pull origin master
-        
+
+          echo "📦 git fetch & reset --hard (강제 최신화)"
+          git fetch origin
+          git reset --hard origin/master
+          git clean -fd
+
           echo "🔧 실행 권한 부여"
           chmod +x start.sh
-        
+
+          echo "🌍 환경 변수 설정"
           export ENV=production
           export LIVE_MODE=False
           export UPBIT_ACCESS_KEY=${{ secrets.UPBIT_ACCESS_KEY }}
           export UPBIT_SECRET_KEY=${{ secrets.UPBIT_SECRET_KEY }}
           export DISCORD_WEBHOOK_URL=${{ secrets.DISCORD_WEBHOOK_URL }}
-        
+
           echo "▶️ start.sh 실행"
           ./start.sh
-        
+
           echo "✅ 배포 및 실행 완료"
